@@ -22,14 +22,13 @@ Other changes:
 * v2 UI at `example/kb-v2.html`
 
 ## Known issues
-* Web workers and the File Reader API must be supported by the browser for Keybearer to function
-* Most browsers apart from Chrome don't support the 'download' attribute, and won't download the files using the proper names
-* Most browsers apart from Chrome don't supply decent random numbers to Javascript, and so require mouse movement for random data
-* The code (especially kbpage.js) is not as beautiful as I would like. This is my first Javascript project, so sorry about being so tightly bound with the DOM in the example
+* Web workers and the File Reader API must be supported by the browser for Keybearer to function (all modern browsers support these)
+* The code organization could be improved - the UI controller (kbpage-v2.js) is tightly coupled with the DOM, though v2 has simplified it significantly
 
 ## Notes on operation
 * Whitespace is stripped from each end of each password
 * Whitespace inside passwords is collapsed down to a single space
-* Encryption is done in a web worker
+* Encryption is done in a web worker (v2 uses `dist/kb-worker.js`)
 * Decryption is done in the main thread
-* Randomized passwords are generated from a list of 50,000 common English words
+* Randomized passwords are generated from a list of ~44,000 common English words
+* v2 uses `crypto.getRandomValues()` for all random number generation (no entropy collection required)
