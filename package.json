@@ -1,0 +1,29 @@
+{
+  "name": "keybearer",
+  "version": "2.0.0",
+  "description": "Client-side Shamir's Secret Sharing file encryption tool",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:main && npm run build:worker",
+    "build:main": "esbuild src/kb.js --bundle --minify --outfile=dist/kb.js --format=iife",
+    "build:worker": "esbuild src/kb-worker.js --bundle --minify --outfile=dist/kb-worker.js --format=iife",
+    "build:dev": "npm run build:main:dev && npm run build:worker:dev",
+    "build:main:dev": "esbuild src/kb.js --bundle --sourcemap --outfile=dist/kb.js --format=iife",
+    "build:worker:dev": "esbuild src/kb-worker.js --bundle --sourcemap --outfile=dist/kb-worker.js --format=iife"
+  },
+  "keywords": [
+    "encryption",
+    "shamir",
+    "secret-sharing",
+    "cryptography"
+  ],
+  "author": "",
+  "license": "SEE COPYRIGHT FILE",
+  "dependencies": {
+    "@noble/ciphers": "^1.0.0",
+    "@noble/hashes": "^1.5.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

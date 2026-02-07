@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Keybearer Test</title>
+</head>
+<body>
+    <h1>Simple Keybearer Test</h1>
+    <pre id="output"></pre>
+
+    <script src="../dist/kb.js"></script>
+    <script>
+        // Make keybearer available as global variable
+        var keybearer = window.keybearer;
+    </script>
+    <script>
+        const output = document.getElementById('output');
+
+        function log(msg) {
+            output.textContent += msg + '\n';
+            console.log(msg);
+        }
+
+        log('Testing keybearer availability...');
+        log('typeof keybearer: ' + typeof keybearer);
+        log('typeof window.keybearer: ' + typeof window.keybearer);
+
+        if (typeof keybearer !== 'undefined') {
+            log('✓ keybearer is defined');
+            log('✓ keybearer.makeSalt: ' + typeof keybearer.makeSalt);
+            log('✓ keybearer.encryptWithPasswords: ' + typeof keybearer.encryptWithPasswords);
+
+            // Try to use it
+            try {
+                keybearer.makeSalt();
+                log('✓ makeSalt() worked!');
+                log('✓ Salt length: ' + keybearer._salt.length);
+                log('\n🎉 SUCCESS! Keybearer is working!');
+            } catch (err) {
+                log('✗ Error calling makeSalt(): ' + err.message);
+            }
+        } else {
+            log('✗ keybearer is NOT defined!');
+            log('Available globals: ' + Object.keys(window).filter(k => k.includes('key')).join(', '));
+        }
+    </script>
+</body>
+</html>

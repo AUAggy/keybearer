@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keybearer v2 Test</title>
+    <script src="../sjcl/sjcl.js"></script>
+    <script src="../dist/kb.js"></script>
+</head>
+<body>
+    <h1>Keybearer v2 Test</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function log(msg) {
+            output.innerHTML += msg + '<br>';
+            console.log(msg);
+        }
+
+        function runTest() {
+            log('=== Keybearer v2 Test ===');
+
+            try {
+                // Test 1: Generate salt
+                log('Test 1: Generate salt...');
+                keybearer.makeSalt();
+                log('✓ Salt generated: ' + keybearer._salt.length + ' bytes');
+
+                // Test 2: Set plaintext
+                log('Test 2: Set plaintext...');
+                const testData = new TextEncoder().encode('Hello, Keybearer v2!');
+                keybearer.setPlaintext(testData, 'test.txt', 'text/plain');
+                log('✓ Plaintext set: ' + keybearer._plaintext.length + ' bytes');
+
+                // Test 3: Generate passwords
+                log('Test 3: Make password combinations...');
+                const passwords = ['alpha', 'beta', 'gamma'];
+                keybearer.makeKeyCombinations(passwords, 2, function(pct) {
+                    if (pct === 1) log('✓ Key combinations generated');
+                });
+
+                // Test 4: Encrypt
+                log('Test 4: Encrypt with passwords...');
+                const encrypted = keybearer.encryptWithPasswords(passwords, 2);
+                const encObj = JSON.parse(encrypted);
+                log('✓ Encrypted! Version: ' + encObj.v);
+                log('  Mode: ' + encObj.mode);
+                log('  Cipher: ' + encObj.cipher);
+                log('  Keys: ' + encObj.keys.length);
+                log('  Iterations: ' + encObj.iter);
+
+                // Test 5: Decrypt
+                log('Test 5: Decrypt with passwords...');
+                keybearer.setCipherJSON(encrypted);
+                keybearer.makeKeyCombinations(['alpha', 'beta'], 2);
+                const gotKey = keybearer.decryptKeys();
+                if (!gotKey) {
+                    log('✗ Failed to decrypt keys');
+                    return;
+                }
+                log('✓ Master key decrypted');
+
+                keybearer.decryptCiphertext();
+                const decrypted = new TextDecoder().decode(keybearer.getPlaintext());
+                log('✓ Decrypted: "' + decrypted + '"');
+
+                if (decrypted === 'Hello, Keybearer v2!') {
+                    log('');
+                    log('🎉 ALL TESTS PASSED!');
+                } else {
+                    log('✗ Decryption mismatch!');
+                }
+
+            } catch (err) {
+                log('✗ ERROR: ' + err.message);
+                console.error(err);
+            }
+        }
+
+        // Run test after page loads
+        window.onload = runTest;
+    </script>
+</body>
+</html>

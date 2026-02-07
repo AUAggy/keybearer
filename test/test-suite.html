@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keybearer Test Suite</title>
+    <script src="../sjcl/sjcl.js"></script>
+    <script src="../dist/kb.js"></script>
+    <script>
+        // Make keybearer available as global variable (bundle sets window.keybearer)
+        if (typeof keybearer === 'undefined' && typeof window.keybearer !== 'undefined') {
+            var keybearer = window.keybearer;
+        }
+    </script>
+    <style>
+        body { font-family: monospace; padding: 20px; max-width: 1000px; margin: 0 auto; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        .running { background-color: #fff3cd; border-color: #ffeaa7; }
+        h1 { color: #333; }
+        h2 { color: #0088cc; margin-top: 0; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 5px; }
+        .summary { font-size: 20px; font-weight: bold; margin: 20px 0; padding: 20px; border-radius: 5px; }
+        .summary.pass { background-color: #d4edda; color: #155724; }
+        .summary.fail { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Keybearer v2 Test Suite</h1>
+    <p>This test suite verifies Noble crypto implementation and backward compatibility with SJCL v1 files.</p>
+
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="location.reload()">Reset</button>
+
+    <div id="summary"></div>
+    <div id="results"></div>
+
+    <script>
+        let testResults = { pass: 0, fail: 0, total: 0 };
+
+        function startTest(name) {
+            testResults.total++;
+            const div = document.createElement('div');
+            div.className = 'test running';
+            div.id = 'test-' + testResults.total;
+            div.innerHTML = '<h2>' + name + '</h2><pre>Running...</pre>';
+            document.getElementById('results').appendChild(div);
+            return div;
+        }
+
+        function log(div, msg) {
+            const pre = div.querySelector('pre');
+            pre.textContent += msg + '\n';
+        }
+
+        function passTest(div, summary) {
+            div.className = 'test pass';
+            log(div, '\n✅ PASS: ' + summary);
+            testResults.pass++;
+        }
+
+        function failTest(div, error) {
+            div.className = 'test fail';
+            log(div, '\n❌ FAIL: ' + error);
+            testResults.fail++;
+        }
+
+        function showSummary() {
+            const summary = document.getElementById('summary');
+            const status = testResults.fail === 0 ? 'pass' : 'fail';
+            summary.className = 'summary ' + status;
+            summary.innerHTML =
+                '📊 Test Results: ' + testResults.pass + ' / ' + testResults.total + ' passed' +
+                (testResults.fail > 0 ? ' (' + testResults.fail + ' failed)' : ' 🎉');
+        }
+
+        // Test 1: V2 Encryption and Decryption
+        async function testV2EncryptDecrypt() {
+            const div = startTest('Test 1: V2 Encryption and Decryption');
+
+            try {
+                // Generate salt
+                keybearer.makeSalt();
+                log(div, '✓ Salt generated: ' + keybearer._salt.length + ' bytes');
+
+                // Set plaintext
+                const testData = new TextEncoder().encode('Hello, Keybearer v2! Testing Noble crypto.');
+                keybearer.setPlaintext(testData, 'test-v2.txt', 'text/plain');
+                log(div, '✓ Plaintext set: ' + testData.length + ' bytes');
+
+                // Generate passwords and encrypt
+                const passwords = ['alpha', 'beta', 'gamma', 'delta'];
+                const threshold = 2;
+                log(div, '✓ Passwords: ' + passwords.join(', '));
+                log(div, '✓ Threshold: ' + threshold + ' of ' + passwords.length);
+
+                const encrypted = keybearer.encryptWithPasswords(passwords, threshold, function(pct) {
+                    if (pct === 1) log(div, '✓ Key combinations generated');
+                });
+
+                const encObj = JSON.parse(encrypted);
+                log(div, '\n=== Encrypted File ===');
+                log(div, 'Version: ' + encObj.v);
+                log(div, 'Mode: ' + encObj.mode);
+                log(div, 'Cipher: ' + encObj.cipher);
+                log(div, 'Keys: ' + encObj.keys.length + ' (should be C(' + passwords.length + ',' + threshold + ') = 6)');
+                log(div, 'Iterations: ' + encObj.iter);
+
+                // Verify it's v2
+                if (encObj.v !== 2) {
+                    throw new Error('Expected version 2, got ' + encObj.v);
+                }
+                if (encObj.mode !== 'chacha20poly1305') {
+                    throw new Error('Expected chacha20poly1305, got ' + encObj.mode);
+                }
+
+                // Decrypt with subset of passwords
+                log(div, '\n=== Decryption ===');
+                keybearer.setCipherJSON(encrypted);
+                keybearer.makeKeyCombinations(['alpha', 'beta'], threshold);
+                log(div, '✓ Using passwords: alpha, beta');
+
+                const gotKey = keybearer.decryptKeys();
+                if (!gotKey) {
+                    throw new Error('Failed to decrypt master key');
+                }
+                log(div, '✓ Master key decrypted');
+
+                keybearer.decryptCiphertext();
+                const decrypted = new TextDecoder().decode(keybearer.getPlaintext());
+                log(div, '✓ Ciphertext decrypted: "' + decrypted + '"');
+
+                if (decrypted !== 'Hello, Keybearer v2! Testing Noble crypto.') {
+                    throw new Error('Decryption mismatch!');
+                }
+
+                passTest(div, 'V2 encrypt/decrypt works correctly');
+
+            } catch (err) {
+                failTest(div, err.message);
+                console.error(err);
+            }
+        }
+
+        // Test 2: V2 with different password combinations
+        async function testV2PasswordCombinations() {
+            const div = startTest('Test 2: V2 Password Combinations (5-choose-3)');
+
+            try {
+                keybearer.makeSalt();
+                const testData = new TextEncoder().encode('Testing 5-choose-3');
+                keybearer.setPlaintext(testData, 'test.txt', 'text/plain');
+
+                const passwords = ['p1', 'p2', 'p3', 'p4', 'p5'];
+                const threshold = 3;
+
+                const encrypted = keybearer.encryptWithPasswords(passwords, threshold);
+                const encObj = JSON.parse(encrypted);
+
+                log(div, 'Total passwords: ' + passwords.length);
+                log(div, 'Threshold: ' + threshold);
+                log(div, 'Expected keys: C(5,3) = 10');
+                log(div, 'Actual keys: ' + encObj.keys.length);
+
+                if (encObj.keys.length !== 10) {
+                    throw new Error('Wrong number of key combinations');
+                }
+
+                // Try different password combinations
+                const combos = [
+                    ['p1', 'p2', 'p3'],
+                    ['p1', 'p4', 'p5'],
+                    ['p2', 'p3', 'p5']
+                ];
+
+                for (let combo of combos) {
+                    keybearer.setCipherJSON(encrypted);
+                    keybearer.makeKeyCombinations(combo, threshold);
+                    if (!keybearer.decryptKeys()) {
+                        throw new Error('Failed to decrypt with: ' + combo.join(', '));
+                    }
+                    log(div, '✓ Decrypted with: ' + combo.join(', '));
+                }
+
+                // Try wrong combination (only 2 passwords)
+                keybearer.setCipherJSON(encrypted);
+                keybearer.makeKeyCombinations(['p1', 'p2'], 2);
+                if (keybearer.decryptKeys()) {
+                    throw new Error('Should NOT decrypt with only 2 passwords');
+                }
+                log(div, '✓ Correctly failed with insufficient passwords');
+
+                passTest(div, 'All password combinations work correctly');
+
+            } catch (err) {
+                failTest(div, err.message);
+                console.error(err);
+            }
+        }
+
+        // Test 3: V2 with large data
+        async function testV2LargeData() {
+            const div = startTest('Test 3: V2 with Large Data (100KB)');
+
+            try {
+                keybearer.makeSalt();
+
+                // Create 100KB of data
+                const size = 100 * 1024;
+                const largeData = new Uint8Array(size);
+                for (let i = 0; i < size; i++) {
+                    largeData[i] = i % 256;
+                }
+
+                keybearer.setPlaintext(largeData, 'large.bin', 'application/octet-stream');
+                log(div, '✓ Set plaintext: ' + size + ' bytes');
+
+                const passwords = ['pass1', 'pass2', 'pass3'];
+                const encrypted = keybearer.encryptWithPasswords(passwords, 2);
+                log(div, '✓ Encrypted ' + size + ' bytes');
+                log(div, 'JSON size: ' + encrypted.length + ' bytes');
+
+                // Decrypt
+                keybearer.setCipherJSON(encrypted);
+                keybearer.makeKeyCombinations(['pass1', 'pass2'], 2);
+                keybearer.decryptKeys();
+                keybearer.decryptCiphertext();
+
+                const decrypted = keybearer.getPlaintext();
+                log(div, '✓ Decrypted: ' + decrypted.length + ' bytes');
+
+                // Verify data integrity
+                for (let i = 0; i < size; i++) {
+                    if (decrypted[i] !== largeData[i]) {
+                        throw new Error('Data mismatch at byte ' + i);
+                    }
+                }
+
+                passTest(div, 'Large data encrypted and decrypted correctly');
+
+            } catch (err) {
+                failTest(div, err.message);
+                console.error(err);
+            }
+        }
+
+        // Test 4: Test metadata preservation
+        async function testV2Metadata() {
+            const div = startTest('Test 4: V2 Metadata Preservation');
+
+            try {
+                keybearer.makeSalt();
+                const testData = new TextEncoder().encode('Testing metadata');
+                keybearer.setPlaintext(testData, 'myfile.pdf', 'application/pdf');
+
+                const encrypted = keybearer.encryptWithPasswords(['pwd1', 'pwd2'], 1);
+                const encObj = JSON.parse(encrypted);
+
+                log(div, 'Original filename: myfile.pdf');
+                log(div, 'Original filetype: application/pdf');
+                log(div, 'Stored filename: ' + encObj.fn);
+                log(div, 'Stored filetype: ' + encObj.ft);
+
+                if (encObj.fn !== 'myfile.pdf') {
+                    throw new Error('Filename not preserved');
+                }
+                if (encObj.ft !== 'application/pdf') {
+                    throw new Error('Filetype not preserved');
+                }
+
+                // Decrypt and check
+                keybearer.setCipherJSON(encrypted);
+                if (keybearer.getFileName() !== 'myfile.pdf') {
+                    throw new Error('Filename not loaded correctly');
+                }
+                if (keybearer.getFileType() !== 'application/pdf') {
+                    throw new Error('Filetype not loaded correctly');
+                }
+
+                passTest(div, 'Metadata preserved correctly');
+
+            } catch (err) {
+                failTest(div, err.message);
+                console.error(err);
+            }
+        }
+
+        // Test 5: PBKDF2 iterations
+        async function testPBKDF2Iterations() {
+            const div = startTest('Test 5: PBKDF2 Iteration Settings');
+
+            try {
+                const iterations = [2000, 10000, 50000, 200000];
+
+                for (let iter of iterations) {
+                    keybearer.setPBKDF2Iterations(iter);
+                    keybearer.makeSalt();
+
+                    const testData = new TextEncoder().encode('test');
+                    keybearer.setPlaintext(testData, 'test.txt', 'text/plain');
+
+                    const encrypted = keybearer.encryptWithPasswords(['pwd'], 1);
+                    const encObj = JSON.parse(encrypted);
+
+                    if (encObj.iter !== iter) {
+                        throw new Error('Expected ' + iter + ' iterations, got ' + encObj.iter);
+                    }
+                    log(div, '✓ Iterations ' + iter + ' set correctly');
+                }
+
+                passTest(div, 'All PBKDF2 iteration settings work');
+
+            } catch (err) {
+                failTest(div, err.message);
+                console.error(err);
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('summary').innerHTML = '';
+            testResults = { pass: 0, fail: 0, total: 0 };
+
+            await testV2EncryptDecrypt();
+            await new Promise(r => setTimeout(r, 100));
+
+            await testV2PasswordCombinations();
+            await new Promise(r => setTimeout(r, 100));
+
+            await testV2LargeData();
+            await new Promise(r => setTimeout(r, 100));
+
+            await testV2Metadata();
+            await new Promise(r => setTimeout(r, 100));
+
+            await testPBKDF2Iterations();
+
+            showSummary();
+        }
+
+        // Auto-run on load
+        window.onload = () => {
+            console.log('Test suite loaded.');
+            console.log('typeof keybearer:', typeof keybearer);
+            console.log('typeof window.keybearer:', typeof window.keybearer);
+
+            // Ensure keybearer is accessible globally
+            if (typeof keybearer === 'undefined' && typeof window.keybearer !== 'undefined') {
+                window.keybearer = window.keybearer;
+                console.log('Set global keybearer reference');
+            }
+
+            if (typeof keybearer !== 'undefined') {
+                console.log('✓ Keybearer loaded successfully');
+            } else {
+                console.error('✗ Keybearer not loaded!');
+            }
+        };
+    </script>
+</body>
+</html>

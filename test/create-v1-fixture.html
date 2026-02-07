@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create V1 Test Fixture</title>
+    <script src="../sjcl/sjcl.js"></script>
+    <script src="../kb.js"></script>
+</head>
+<body>
+    <h1>Create V1 Test Fixture</h1>
+    <button onclick="createFixture()">Create V1 Encrypted File</button>
+    <pre id="output"></pre>
+
+    <script>
+        function log(msg) {
+            document.getElementById('output').textContent += msg + '\n';
+        }
+
+        function createFixture() {
+            log('Creating V1 test fixture with SJCL/CCM...');
+
+            try {
+                // Initialize entropy (v1 requirement)
+                sjcl.random.setDefaultParanoia(10);
+
+                // Add some entropy
+                for (let i = 0; i < 100; i++) {
+                    sjcl.random.addEntropy(Math.random() * 1000000, 2, "test.entropy");
+                }
+
+                if (!sjcl.random.isReady()) {
+                    log('ERROR: RNG not ready. Move mouse and try again.');
+                    return;
+                }
+
+                // Generate salt
+                keybearer.makeSalt();
+                log('✓ Salt generated');
+
+                // Set plaintext
+                const testData = new TextEncoder().encode('Hello from V1! This is a legacy SJCL-encrypted file.');
+                const arrayBuffer = testData.buffer;
+                keybearer.setPlaintext(arrayBuffer, 'test-v1.txt', 'text/plain');
+                log('✓ Plaintext set: ' + testData.length + ' bytes');
+
+                // Define passwords and threshold
+                const passwords = ['password1', 'password2', 'password3', 'password4', 'password5'];
+                const threshold = 3;
+
+                log('✓ Passwords: ' + passwords.join(', '));
+                log('✓ Threshold: ' + threshold + ' of ' + passwords.length);
+
+                // Encrypt
+                const encrypted = keybearer.encryptWithPasswords(passwords, threshold);
+                const encObj = JSON.parse(encrypted);
+
+                log('\n=== V1 Encrypted File Created ===');
+                log('Version: ' + (encObj.v || 1));
+                log('Mode: ' + encObj.mode);
+                log('Cipher: ' + encObj.cipher);
+                log('Keys: ' + encObj.keys.length);
+                log('Iterations: ' + encObj.iter);
+                log('\nJSON length: ' + encrypted.length + ' characters');
+
+                // Create download link
+                const blob = new Blob([encrypted], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'test-v1-fixture.kbr.json';
+                link.textContent = 'Download V1 Test Fixture';
+                link.style.display = 'block';
+                link.style.marginTop = '20px';
+                link.style.fontSize = '18px';
+                document.body.appendChild(link);
+
+                log('\n✅ Click link above to download fixture file!');
+                log('\nTo test decryption, use passwords: ' + passwords.slice(0, threshold).join(', '));
+
+            } catch (err) {
+                log('\n✗ ERROR: ' + err.message);
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>

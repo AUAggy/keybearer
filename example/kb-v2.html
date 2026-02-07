@@ -1,0 +1,200 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Keybearer v2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="css/bootstrap.min.css" rel="stylesheet" media="screen" type="text/css"/>
+<link href="css/bootstrap-responsive.min.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="css/kbpage.css"/>
+<!-- V2: Load SJCL only for legacy decryption support -->
+<script type="text/javascript" src="../sjcl/sjcl.js"></script>
+<!-- V2: Load bundled Noble crypto library -->
+<script type="text/javascript" src="../dist/kb.js"></script>
+<script>
+    // Make keybearer available as global variable (bundle sets window.keybearer)
+    var keybearer = window.keybearer;
+</script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.2/jquery.min.js" type="text/javascript"/></script>
+<script type="text/javascript" src="js/kbpage-v2.js"></script>
+<script src="js/bootstrap.min.js" type="text/javascript"/></script>
+</head>
+
+<body onload="kbp.init('wordlists/wordlist.txt', 'wordlists/badngramlist.txt');">
+<div class="header">
+    <h1 class="brand">Keybearer <span style="font-size: 0.5em; color: #0088cc;">v2</span></h1>
+</div>
+
+<a href="http://github.com/msolomon/keybearer">
+<img id="ghbanner" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub">
+</a>
+
+<div id="error"></div>
+
+<div class="container-fluid">
+        <div class="row-fluid">
+        <div class="span6 offset3 alert alert-info">
+            <strong>Confused?</strong>
+            Keybearer uses independent passwords to encrypt a file and requires only a subset of those passwords to decrypt it, all in client-side Javascript.
+            <strong>New in v2:</strong> Uses modern Noble cryptography (ChaCha20-Poly1305), instant startup (no entropy collection needed), and 2-5x faster encryption!
+            Check out the <a href="https://github.com/msolomon/keybearer#keybearer">Readme</a> for more details.
+        </div>
+        </div>
+    <div class="row-fluid">
+        <div class="span6 mainarea well">
+            <div id="encryptsection">
+
+                <h2 class="btn-info">Encrypt</h2>
+
+                <!-- V2: No entropy collection needed! -->
+
+                <div class="form-horizontal">
+                    <div class="control-group">
+                        <span class="control-label">Number of friends:</span>
+                        <div class="controls">
+                            <div class="btn-group" id="num_pass" data-toggle="buttons-radio">
+                                <button id="n1" class="btn" value="1">1</button>
+                                <button id="n2" class="btn" value="2">2</button>
+                                <button id="n3" class="btn" value="3">3</button>
+                                <button id="n4" class="btn" value="4">4</button>
+                                <button id="n5" class="btn active" value="5">5</button>
+                                <button id="n6" class="btn" value="6">6</button>
+                                <button id="n7" class="btn" value="7">7</button>
+                                <button id="n8" class="btn" value="8">8</button>
+                                <button id="n9" class="btn" value="9">9</button>
+                                <button id="n10" class="btn" value="10">10</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Friends needed to unlock:</span>
+                        <div class="controls">
+                            <div class="btn-group" id="num_unlock_pass" data-toggle="buttons-radio">
+                                <button id="m3" class="btn active" value=3>3</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Key combinations to be generated:</span>
+                        <div class="controls">
+                            <a class="btn disabled" id="nkeys_to_gen">10</a>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Key Strengthening:</span>
+                        <div class="controls">
+                            <div class="btn-group" id="pbkdf2iterations" data-toggle="buttons-radio">
+                                <button id="s2" class="btn" rel="tooltip" title="PBKDF2 iterations: 2,000" value="2000">Weak</button>
+                                <button id="s3" class="btn" rel="tooltip" title="PBKDF2 iterations: 10,000" value="10000">Average</button>
+                                <button id="s4" class="btn active" rel="tooltip" title="PBKDF2 iterations: 50,000" value="50000">Strong</button>
+                                <button id="s5" class="btn" rel="tooltip" title="PBKDF2 iterations: 200,000" value="200000">Paranoid</button>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <h3>Passcode Generation</h3>
+                    <div class="alert alert-info">
+                        You may use automatically generated passcodes, or insert your own
+                    </div>
+
+                    <div class="control-group">
+                        <span class="control-label">Friend key length:</span>
+                        <div class="controls">
+                            <div class="btn-group" id="pass_len" data-toggle="buttons-radio">
+                                <button id="l0" class="btn" value="0">0</button>
+                                <button id="l6" class="btn active" value="6">6</button>
+                                <button id="l7" class="btn" value="7">7</button>
+                                <button id="l8" class="btn" value="8">8</button>
+                                <button id="l9" class="btn" value="9">9</button>
+                                <button id="l10" class="btn" value="10">10</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="generated_pass"></div>
+
+                <a href="#passmodal" id="copypass" role="button" class="btn" data-toggle="modal">Copyable passwords</a>
+                <div id="passmodal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                        <h3 id="myModalLabel">Copyable passwords</h3>
+                    </div>
+                    <div class="modal-body">
+                        <p id="modalbody"></p>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="pull-left">Press Ctrl+c or &#8984;+c to copy</div>
+                        <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <h3>File Selection</h3>
+            <div>
+                <div class="alert">
+                    <strong>Notice:</strong> The file name and type will be stored in unauthenticated plain text
+                </div>
+                <form class="form-inline">
+                    <label class="btn">
+                        Select file to encrypt
+                        <input class="hide" type="file" id="secretfile" name="file"/>
+                    </label>
+                    <span id="secretfilename">No file selected</span>
+                </form>
+            </div>
+
+            <form id="encprogress" class="well hide">
+                <fieldset>
+                    <label>Key strengthening:</label>
+                <div id="ksprogress" class="progress">
+                    <div id="ksprogressbar" class="bar" style="width: 0%"></div>
+                </div>
+            </fieldset>
+            </form>
+            <form id="keygensection" class="form-inline">
+                <div class="btn disabled" id="encrypt">Encrypt</div>
+                <div id="encdownloadlink"></div>
+            </form>
+        </div>
+
+
+        <div class="span6 mainarea well">
+
+            <div id="decryptsection">
+                <h2 class="btn-primary">Decrypt</h2>
+                <h3>File Selection</h3>
+                <div class="alert alert-success">
+                    <strong>Backward Compatible:</strong> Can decrypt both legacy v1 files (AES-CCM/OCB2) and new v2 files (ChaCha20-Poly1305)
+                </div>
+                <form class="form-inline">
+                    <label class="btn">
+                        Select file to decrypt
+                        <input class="hide" type="file" id="decfile" name="file" />
+                    </label>
+                    <span id="decfilename">No file selected</span>
+                </form>
+
+                <div id="decpass_area">
+                    <span id="decfileprogress"></span>
+                </div>
+                <span id="decfileprogress">
+                    <div class="btn disabled" id="decrypt">Decrypt</div>
+
+                    <div id="decdownloadlink"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$('.nav-tabs').button();
+</script>
+</body>
+</html>
